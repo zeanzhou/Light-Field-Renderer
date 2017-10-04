@@ -2,14 +2,14 @@
 #include <opencv2/core/core.hpp>  
 #include <opencv2/highgui/highgui.hpp>  
 
+#include "LF.h";
 using namespace std;
 
 int main() {
-	cout << "Hello World!" << endl;
-	char* filename = "lena_std.tif";
-	cv::Mat image = cv::imread(filename);
-	cv::imshow(filename, image);
-	cv::waitKey();
+	LightField lf;
+	lf.load("./toyLF/toyLF.conf");
+	lf.test();
+
 	system("pause");
 	return 0;
 }
