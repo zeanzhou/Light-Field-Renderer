@@ -16,6 +16,7 @@ public:
 	void load(char* filename);
 	void test();
 	void renderByPixel(int i, int j);
+	void render();
 
 	int height;
 	int width;
@@ -27,7 +28,8 @@ public:
 	float disparity;
 	float aperture; //sigma
 private:
-	
+	void createGaussianKernel();
+	cv::Mat kernel;
 };
 
 LightField::LightField()
@@ -95,19 +97,19 @@ void LightField::test()
 	cv::waitKey();
 }
 
-void LightField::renderByPixel(int u, int v)
+void LightField::createGaussianKernel()
 {
 	float sigma = this->aperture;
-	
+
 	// odd ksize
 	//int ksize = ((sigma - 0.8) / 0.3 + 1) * 2 + 1 + 0.5; // +0.5 for rounding
 	//cv::Mat coefficient = cv::getGaussianKernel(ksize, sigma, CV_32F); // CV_64F by default
 
 	// even ksize
-	int ksize = ((sigma - 0.8) / 0.3 + 1) * 2 + 0.5; // +0.5 for rounding
+	int ksize = ((this->aperture - 0.8) / 0.3 + 1) * 2; // +0.5 for rounding // TODO: 0.5 makes ksize odd
 	auto GaussianFunc = [](int index, int ksize, float sigma) { return  exp(-(SQUARE(index - (ksize - 1) / 2.0f)) / (2.0f * SQUARE(sigma))); };
 	cv::Mat coefficient = cv::Mat(ksize, 1, CV_32F);
-	for (int i = 0; i < ksize; ++i) 
+	for (int i = 0; i < ksize; ++i)
 	{
 		float* pdata = coefficient.ptr<float>(i);
 		pdata[0] = GaussianFunc(i, ksize, sigma);
@@ -116,8 +118,18 @@ void LightField::renderByPixel(int u, int v)
 
 	cv::Mat temp = coefficient * cv::Mat::ones(1, ksize, CV_32F); // [a;b;c;d] * [1 1 1 1]
 	cv::Mat temp2 = cv::Mat::diag(coefficient); // [a;b;c;d] on the diag
-	cv::Mat kernel = temp * temp2;
-	
+	this->kernel = temp * temp2;
+}
+
+void LightField::renderByPixel(int u, int v)
+{
+	int ksize = this->kernel.cols;
+	if (ksize == 0)
+	{
+		this->createGaussianKernel();
+		ksize = this->kernel.cols;
+	}
+
 	int s1 = this->camera_s;
 	int t1 = this->camera_t;
 
@@ -132,6 +144,12 @@ void LightField::renderByPixel(int u, int v)
 		{
 			int u_ = u + this->disparity * (s - this->camera_s);
 			int v_ = v + this->disparity * (t - this->camera_t);
+
+			//cout << "(" << s << " " << t << "): " << (s - this->camera_s) << " " << (t - this->camera_t) << endl;
+			//cout << "(" << s << " " << t << "): " << this->disparity * (s - this->camera_s) << " " << this->disparity * (t - this->camera_t) << endl;
+			//cout << "(" << s << " " << t << "): " << u_ << " " << v_ << " " << u << " " << v << endl;
+			//cout << endl;
+
 			
 			// check stuv
 			float scale;
@@ -143,7 +161,7 @@ void LightField::renderByPixel(int u, int v)
 			}
 			else
 			{
-				scale = kernel.at<float>(t, s);
+				scale = this->kernel.at<float>(t - t_lefttop, s - s_lefttop);
 				if (u_ < 0 || u_ >= this->result.cols || v_ < 0 || v_ >= this->result.rows)
 					B = G = R = 0.0f;
 				else
@@ -161,4 +179,21 @@ void LightField::renderByPixel(int u, int v)
 		}
 	}
 
+}
+
+void LightField::render()
+{
+	this->createGaussianKernel();
+	cv::imshow("Result", this->result);
+	cv::waitKey(1);
+	for (int i = 0; i < this->data[0][0].cols; ++i)
+	{
+		for (int j = 0; j < this->data[0][0].rows; ++j)
+		{
+			this->renderByPixel(i, j);
+
+		}
+		cv::imshow("Result", this->result);
+	}
+	cv::waitKey(0);
 }
