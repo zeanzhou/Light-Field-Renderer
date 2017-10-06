@@ -29,6 +29,7 @@ public:
 	float aperture; //sigma
 private:
 	void createGaussianKernel();
+	void createGaussianKernel2();
 	cv::Mat kernel;
 };
 
@@ -56,9 +57,12 @@ void LightField::load(char* filename)
 	string buffer;
 	infile.get(); // newline
 	this->data = new cv::Mat*[this->width];
+
+	for (int i = 0; i < this->width; ++i)
+		this->data[i] = new cv::Mat[this->height];
+
 	for (int i = 0; i < this->width; ++i)
 	{
-		this->data[i] = new cv::Mat[this->height];
 		for (int j = 0; j < this->height; ++j)
 		{
 			getline(infile, buffer);
@@ -84,9 +88,9 @@ void LightField::load(char* filename)
 void LightField::test()
 {
 	assert(this->data);
-	for (int i = 0; i < this->width; ++i)
+	for (int j = 0; j < this->height; ++j)
 	{
-		for (int j = 0; j < this->height; ++j)
+		for (int i = 0; i < this->width; ++i)
 		{
 			cv::imshow("Test", this->data[i][j]);
 			cv::waitKey(10);
@@ -121,6 +125,27 @@ void LightField::createGaussianKernel()
 	this->kernel = temp * temp2;
 }
 
+void LightField::createGaussianKernel2()
+{
+	auto GaussianFunc = 
+		[](float x0, float y0, float sigma, float x, float y) {
+		return  exp(-(SQUARE(x - x0) + SQUARE(y - y0)) / (2.0f * SQUARE(sigma))) / (2 * CV_PI * SQUARE(sigma));
+	};
+	int ksize = ((this->aperture - 0.8) / 0.3 + 1) * 2;
+
+	int s1 = this->camera_s;
+	int t1 = this->camera_t;
+
+	int s_lefttop = s1 - ksize / 2 + 1;
+	int t_lefttop = t1 - ksize / 2 + 1;
+
+	this->kernel = cv::Mat(ksize, ksize, CV_32F);
+	for (int i = 0; i < ksize; ++i)
+		for (int j = 0; j < ksize; ++j)
+			this->kernel.at<float>(j, i) = GaussianFunc(this->camera_s, this->camera_t, this->aperture, i + s_lefttop, j + t_lefttop);
+	this->kernel /= cv::sum(this->kernel)[0];
+}
+
 void LightField::renderByPixel(int u, int v)
 {
 	int ksize = this->kernel.cols;
@@ -134,7 +159,7 @@ void LightField::renderByPixel(int u, int v)
 	int t1 = this->camera_t;
 
 	int s_lefttop = s1 - ksize / 2 + 1;
-	int t_lefttop = t1 - ksize / 2;
+	int t_lefttop = t1 - ksize / 2 + 1;
 
 	uchar* pdst = this->result.ptr<uchar>(v);
 
@@ -142,16 +167,9 @@ void LightField::renderByPixel(int u, int v)
 	{
 		for (int t = t_lefttop; t < t_lefttop + ksize; ++t)
 		{
-			int u_ = u + this->disparity * (s - this->camera_s);
-			int v_ = v + this->disparity * (t - this->camera_t);
+			int u_ = u + this->disparity * ((float)s - this->camera_s);
+			int v_ = v + this->disparity * ((float)t - this->camera_t);
 
-			//cout << "(" << s << " " << t << "): " << (s - this->camera_s) << " " << (t - this->camera_t) << endl;
-			//cout << "(" << s << " " << t << "): " << this->disparity * (s - this->camera_s) << " " << this->disparity * (t - this->camera_t) << endl;
-			//cout << "(" << s << " " << t << "): " << u_ << " " << v_ << " " << u << " " << v << endl;
-			//cout << endl;
-
-			
-			// check stuv
 			float scale;
 			uchar B, G, R;
 			if (s < 0 || s >= this->width || t < 0 || t >= this->height)
@@ -183,8 +201,8 @@ void LightField::renderByPixel(int u, int v)
 
 void LightField::render()
 {
-	this->createGaussianKernel();
-	cv::imshow("Result", this->result);
+	this->createGaussianKernel2();
+	this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
 	for (int i = 0; i < this->data[0][0].cols; ++i)
 	{
@@ -193,7 +211,7 @@ void LightField::render()
 			this->renderByPixel(i, j);
 
 		}
-		cv::imshow("Result", this->result);
 	}
-	cv::waitKey(0);
+	cv::imshow("Result", this->result);
+	//cv::waitKey(0);
 }
