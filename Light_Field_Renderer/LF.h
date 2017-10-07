@@ -218,7 +218,7 @@ void LightField::renderByPixel(int u, int v, cv::Mat target)
 void LightField::render()
 {
 	this->createGaussianKernel2();
-	this->result.setTo(cv::Scalar(0, 0, 0));
+	//this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
 	cv::Mat buffer = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0));
 
@@ -231,5 +231,6 @@ void LightField::render()
 		}
 	}
 	cv::imshow("Result", buffer);
+	this->result = buffer;
 	//cv::waitKey(0);
 }
