@@ -151,6 +151,7 @@ void LightField::createGaussianKernel2()
 		for (int j = 0; j < ksize; ++j)
 			this->kernel.at<float>(j, i) = GaussianFunc(this->camera_s, this->camera_t, this->aperture, i + s_lefttop, j + t_lefttop);
 	this->kernel /= cv::sum(this->kernel)[0];
+
 }
 
 void LightField::renderByPixel(int u, int v)
@@ -174,8 +175,8 @@ void LightField::renderByPixel(int u, int v)
 	{
 		for (int t = t_lefttop; t < t_lefttop + ksize; ++t)
 		{
-			int u_ = u + this->disparity * ((float)s - this->camera_s);
-			int v_ = v + this->disparity * ((float)t - this->camera_t);
+			int u_ = u - this->disparity * ((float)s - this->camera_s);
+			int v_ = v - this->disparity * ((float)t - this->camera_t);
 
 			float scale;
 			uchar B, G, R;
