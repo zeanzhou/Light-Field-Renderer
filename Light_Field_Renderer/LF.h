@@ -219,6 +219,8 @@ void LightField::render()
 	this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
 	cv::Mat buffer = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0));
+
+#pragma omp parallel for schedule(guided)
 	for (int i = 0; i < this->data[0][0].cols; ++i)
 	{
 		for (int j = 0; j < this->data[0][0].rows; ++j)
