@@ -6,10 +6,11 @@
 using namespace std;
 
 void lightFieldFocalPlaneCallback(int value, LightField* lightfield);
-void lightFieldSTCallback(int value, LightField* lightfield);
 void lightFieldSCallback(int value, LightField* lightfield);
 void lightFieldTCallback(int value, LightField* lightfield);
+void lightFieldApertureCallback(int value, LightField* lightfield);
 
+void lightFieldSTCallback(int value, LightField* lightfield);
 int global_s, global_t;
 
 int main() {
@@ -32,7 +33,8 @@ int main() {
 	int fp_init = 15;
 	int cs_init = lf.camera_s * 10;
 	int ct_init = lf.camera_t * 10;
-	cv::createTrackbar("Focal Plane", "Result", &fp_init, 50, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
+	int a_init = lf.aperture * 10;
+	cv::createTrackbar("Focal Plane", "Result", &fp_init, 200, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
 	lightFieldFocalPlaneCallback(fp_init, &lf);
 
 	cv::createTrackbar("Camera S", "Result", &cs_init, (lf.width - 1) * 10, (cv::TrackbarCallback)lightFieldSCallback, &lf);
@@ -40,6 +42,8 @@ int main() {
 	lightFieldSCallback(cs_init, &lf);
 	lightFieldTCallback(ct_init, &lf);
 
+	cv::createTrackbar("Aperture", "Result", &fp_init, 23, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
+	lightFieldApertureCallback(a_init, &lf);
 
 	cv::waitKey();
 	
@@ -59,8 +63,8 @@ int main() {
 
 void lightFieldFocalPlaneCallback(int value, LightField* lightfield)
 {
-	lightfield->disparity = value / 10.0f + 0.1;
-	cout << lightfield->disparity << endl;
+	lightfield->disparity = value / 10.0f;
+	cout << "New Focal Plane (disparity) = " << lightfield->disparity << endl;
 	lightfield->render();
 }
 
@@ -80,5 +84,12 @@ void lightFieldTCallback(int value, LightField* lightfield)
 {
 	lightfield->camera_t = value / 10.0f;
 	cout << "New t = " << lightfield->camera_t << endl;
+	lightfield->render();
+}
+
+void lightFieldApertureCallback(int value, LightField* lightfield)
+{
+	lightfield->aperture = value / 10.0f + 0.7;
+	cout << "New aperture (sigma) = " << lightfield->aperture << endl;
 	lightfield->render();
 }
