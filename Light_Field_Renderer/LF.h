@@ -16,14 +16,10 @@ public:
 	void load(char* filename);
 	void test();
 	void test2(int i = 0, int j = 0);
-	void renderByPixel(int i, int j);
-	void renderByPixel(int i, int j, cv::Mat target);
 	void render();
 
 	int height;
 	int width;
-	cv::Mat** data;
-	cv::Mat result;
 
 	float camera_s;
 	float camera_t;
@@ -32,7 +28,12 @@ public:
 private:
 	void createGaussianKernel();
 	void createGaussianKernel2();
+	void renderByPixel(int i, int j);
+	void renderByPixel(int i, int j, cv::Mat target);
+
 	cv::Mat kernel;
+	cv::Mat** data;
+	cv::Mat result;
 };
 
 LightField::LightField()
@@ -148,6 +149,7 @@ void LightField::createGaussianKernel2()
 	int t_lefttop = t1 - ksize / 2 + 1;
 
 	this->kernel = cv::Mat(ksize, ksize, CV_32F);
+#pragma omp parallel for schedule(static)
 	for (int i = 0; i < ksize; ++i)
 		for (int j = 0; j < ksize; ++j)
 			this->kernel.at<float>(j, i) = GaussianFunc(this->camera_s, this->camera_t, this->aperture, i + s_lefttop, j + t_lefttop);
