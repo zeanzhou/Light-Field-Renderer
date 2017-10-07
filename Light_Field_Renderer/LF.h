@@ -15,6 +15,7 @@ public:
 	~LightField();
 	void load(char* filename);
 	void test();
+	void test2(int i = 0, int j = 0);
 	void renderByPixel(int i, int j);
 	void render();
 
@@ -99,6 +100,12 @@ void LightField::test()
 		cv::waitKey(50);
 	}
 	cv::waitKey();
+}
+
+void LightField::test2(int i, int j)
+{
+	assert(this->data);
+	cv::imshow("Test 2", this->data[i][j]);
 }
 
 void LightField::createGaussianKernel()
