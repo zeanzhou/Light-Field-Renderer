@@ -7,6 +7,9 @@ using namespace std;
 
 void lightFieldFocalPlaneCallback(int value, LightField* lightfield);
 void lightFieldSTCallback(int value, LightField* lightfield);
+void lightFieldSCallback(int value, LightField* lightfield);
+void lightFieldTCallback(int value, LightField* lightfield);
+
 int global_s, global_t;
 
 int main() {
@@ -25,19 +28,28 @@ int main() {
 	//cv::imshow("Result", lf.result);
 	//cv::waitKey(0);
 
-	//cv::namedWindow("Result", CV_WINDOW_AUTOSIZE);
-	//int fp_init = 15;
-	//cv::createTrackbar("Focal Plane", "Result", &fp_init, 50, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
-	//lightFieldApertureCallback(fp_init, &lf);
-	//cv::waitKey();
+	cv::namedWindow("Result", CV_WINDOW_AUTOSIZE);
+	int fp_init = 15;
+	int cs_init = lf.camera_s * 10;
+	int ct_init = lf.camera_t * 10;
+	cv::createTrackbar("Focal Plane", "Result", &fp_init, 50, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
+	lightFieldFocalPlaneCallback(fp_init, &lf);
+
+	cv::createTrackbar("Camera S", "Result", &cs_init, (lf.width - 1) * 10, (cv::TrackbarCallback)lightFieldSCallback, &lf);
+	cv::createTrackbar("Camera T", "Result", &ct_init, (lf.height - 1) * 10, (cv::TrackbarCallback)lightFieldTCallback, &lf);
+	lightFieldSCallback(cs_init, &lf);
+	lightFieldTCallback(ct_init, &lf);
+
+
+	cv::waitKey();
 	
 
 	// test st
-	cv::namedWindow("Test 2", CV_WINDOW_AUTOSIZE);
-	cv::createTrackbar("s-value", "Test 2", &global_s, lf.width - 1, (cv::TrackbarCallback)lightFieldSTCallback, &lf);
-	cv::createTrackbar("t-value", "Test 2", &global_t, lf.height - 1, (cv::TrackbarCallback)lightFieldSTCallback, &lf);
-	lightFieldSTCallback(0, &lf);
-	cv::waitKey();
+	//cv::namedWindow("Test 2", CV_WINDOW_AUTOSIZE);
+	//cv::createTrackbar("s-value", "Test 2", &global_s, lf.width - 1, (cv::TrackbarCallback)lightFieldSTCallback, &lf);
+	//cv::createTrackbar("t-value", "Test 2", &global_t, lf.height - 1, (cv::TrackbarCallback)lightFieldSTCallback, &lf);
+	//lightFieldSTCallback(0, &lf);
+	//cv::waitKey();
 
 
 
@@ -55,4 +67,18 @@ void lightFieldFocalPlaneCallback(int value, LightField* lightfield)
 void lightFieldSTCallback(int value, LightField* lightfield)
 {
 	lightfield->test2(global_s, global_t);
+}
+
+void lightFieldSCallback(int value, LightField* lightfield)
+{
+	lightfield->camera_s = value / 10.0f;
+	cout << "New s = " << lightfield->camera_s << endl;
+	lightfield->render();
+}
+
+void lightFieldTCallback(int value, LightField* lightfield)
+{
+	lightfield->camera_t = value / 10.0f;
+	cout << "New t = " << lightfield->camera_t << endl;
+	lightfield->render();
 }
