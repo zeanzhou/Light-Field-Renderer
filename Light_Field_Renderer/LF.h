@@ -17,6 +17,7 @@ public:
 	void test();
 	void test2(int i = 0, int j = 0);
 	void renderByPixel(int i, int j);
+	void renderByPixel(int i, int j, cv::Mat target);
 	void render();
 
 	int height;
@@ -156,6 +157,11 @@ void LightField::createGaussianKernel2()
 
 void LightField::renderByPixel(int u, int v)
 {
+	this->renderByPixel(u, v, this->result);
+}
+
+void LightField::renderByPixel(int u, int v, cv::Mat target)
+{
 	int ksize = this->kernel.cols;
 	if (ksize == 0)
 	{
@@ -169,7 +175,7 @@ void LightField::renderByPixel(int u, int v)
 	int s_lefttop = s1 - ksize / 2 + 1;
 	int t_lefttop = t1 - ksize / 2 + 1;
 
-	uchar* pdst = this->result.ptr<uchar>(v);
+	uchar* pdst = target.ptr<uchar>(v);
 
 	for (int s = s_lefttop; s < s_lefttop + ksize; ++s)
 	{
@@ -212,14 +218,14 @@ void LightField::render()
 	this->createGaussianKernel2();
 	this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
+	cv::Mat buffer = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0));
 	for (int i = 0; i < this->data[0][0].cols; ++i)
 	{
 		for (int j = 0; j < this->data[0][0].rows; ++j)
 		{
-			this->renderByPixel(i, j);
-
+			this->renderByPixel(i, j, buffer);
 		}
 	}
-	cv::imshow("Result", this->result);
+	cv::imshow("Result", buffer);
 	//cv::waitKey(0);
 }
