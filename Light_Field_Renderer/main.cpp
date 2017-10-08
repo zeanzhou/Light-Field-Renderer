@@ -28,7 +28,7 @@ int main() {
 	int cs_init = lf.camera_s * 10;
 	int ct_init = lf.camera_t * 10;
 	int a_init = lf.aperture * 10;
-	cv::createTrackbar("Focal Plane", "Result", &fp_init, 200, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
+	cv::createTrackbar("Focal Plane", "Result", &fp_init, 1500, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
 	lightFieldFocalPlaneCallback(fp_init, &lf);
 
 	cv::createTrackbar("Camera S", "Result", &cs_init, (lf.width - 1) * 10, (cv::TrackbarCallback)lightFieldSCallback, &lf);
@@ -54,7 +54,7 @@ int main() {
 
 void lightFieldFocalPlaneCallback(int value, LightField* lightfield)
 {
-	lightfield->disparity = value / 10.0f;
+	lightfield->disparity = value / 100.0f;
 	cout << "New Focal Plane (disparity) = " << lightfield->disparity << endl;
 	lightfield->render();
 }

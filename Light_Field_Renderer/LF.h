@@ -140,7 +140,9 @@ void LightField::createGaussianKernel2()
 		[](float x0, float y0, float sigma, float x, float y) {
 		return  exp(-(SQUARE(x - x0) + SQUARE(y - y0)) / (2.0f * SQUARE(sigma))) / (2 * CV_PI * SQUARE(sigma));
 	};
-	int ksize = ((this->aperture - 0.8) / 0.3 + 1) * 2;
+	int ksize = (int)((this->aperture - 0.8) / 0.3 + 1) * 2;
+	if (ksize == 0)
+		ksize = 1;
 
 	int s1 = this->camera_s;
 	int t1 = this->camera_t;
@@ -167,7 +169,7 @@ void LightField::renderByPixel(int u, int v, cv::Mat target)
 	int ksize = this->kernel.cols;
 	if (ksize == 0)
 	{
-		this->createGaussianKernel();
+		this->createGaussianKernel2();
 		ksize = this->kernel.cols;
 	}
 
@@ -177,7 +179,8 @@ void LightField::renderByPixel(int u, int v, cv::Mat target)
 	int s_lefttop = s1 - ksize / 2 + 1;
 	int t_lefttop = t1 - ksize / 2 + 1;
 
-	uchar* pdst = target.ptr<uchar>(v);
+	float targetBGR[3];
+	targetBGR[0] = targetBGR[1] = targetBGR[2] = 0.0f;
 
 	for (int s = s_lefttop; s < s_lefttop + ksize; ++s)
 	{
@@ -207,12 +210,16 @@ void LightField::renderByPixel(int u, int v, cv::Mat target)
 				}
 			}
 			
-			pdst[u * 3] += scale * B;
-			pdst[u * 3 + 1] += scale * G;
-			pdst[u * 3 + 2] += scale * R;
+			targetBGR[0] += scale * B;
+			targetBGR[1] += scale * G;
+			targetBGR[2] += scale * R;
 		}
 	}
 
+	uchar* pdst = target.ptr<uchar>(v);
+	pdst[u * 3] = targetBGR[0];
+	pdst[u * 3 + 1] = targetBGR[1];
+	pdst[u * 3 + 2] = targetBGR[2];
 }
 
 void LightField::render()
