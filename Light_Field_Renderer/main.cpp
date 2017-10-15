@@ -36,7 +36,7 @@ int main() {
 	lightFieldSCallback(cs_init, &lf);
 	lightFieldTCallback(ct_init, &lf);
 
-	cv::createTrackbar("Aperture", "Result", &fp_init, 23, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
+	cv::createTrackbar("Aperture", "Result", &a_init, 23, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
 	lightFieldApertureCallback(a_init, &lf);
 
 	cv::waitKey();
