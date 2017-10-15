@@ -9,6 +9,8 @@ void lightFieldFocalPlaneCallback(int value, LightField* lightfield);
 void lightFieldSCallback(int value, LightField* lightfield);
 void lightFieldTCallback(int value, LightField* lightfield);
 void lightFieldRxCallback(int value, LightField* lightfield);
+void lightFieldRyCallback(int value, LightField* lightfield);
+void lightFieldTzCallback(int value, LightField* lightfield);
 void lightFieldApertureCallback(int value, LightField* lightfield);
 
 //void lightFieldSTCallback(int value, LightField* lightfield);
@@ -22,14 +24,17 @@ int main() {
 	lf.camera_s = 8.5;
 	lf.camera_t = 8.5;
 	lf.disparity = 1.5;
-	lf.aperture = 0.9;
+	lf.aperture = 0.7;
 
 	cv::namedWindow("Result", CV_WINDOW_AUTOSIZE);
 	int fp_init = 15;
 	int cs_init = lf.camera_s * 10;
 	int ct_init = lf.camera_t * 10;
-	int a_init = lf.aperture * 10;
-	int rx_init = 45.0f;
+	int a_init = lf.aperture * 10 - 7;
+	int rx_init = 90;
+	int ry_init = 90;
+	int tz_init = 50;
+
 	cv::createTrackbar("Focal Plane", "Result", &fp_init, 1500, (cv::TrackbarCallback)lightFieldFocalPlaneCallback, &lf);
 	lightFieldFocalPlaneCallback(fp_init, &lf);
 
@@ -38,12 +43,17 @@ int main() {
 	lightFieldSCallback(cs_init, &lf);
 	lightFieldTCallback(ct_init, &lf);
 
-	cv::createTrackbar("Aperture", "Result", &fp_init, 23, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
+	cv::createTrackbar("Aperture", "Result", &a_init, 23, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
 	lightFieldApertureCallback(a_init, &lf);
 
-	cv::createTrackbar("X axis", "Result", &rx_init, 180, (cv::TrackbarCallback)lightFieldApertureCallback, &lf);
+	cv::createTrackbar("X axis Rotation", "Result", &rx_init, 180, (cv::TrackbarCallback)lightFieldRxCallback, &lf);
 	lightFieldRxCallback(rx_init, &lf);
 
+	cv::createTrackbar("Y axis Rotation", "Result", &ry_init, 180, (cv::TrackbarCallback)lightFieldRyCallback, &lf);
+	lightFieldRyCallback(ry_init, &lf);
+
+	cv::createTrackbar("Z axis Translation", "Result", &tz_init, 100, (cv::TrackbarCallback)lightFieldTzCallback, &lf);
+	lightFieldTzCallback(tz_init, &lf);
 
 	cv::waitKey();
 
@@ -83,6 +93,20 @@ void lightFieldRxCallback(int value, LightField* lightfield)
 {
 	lightfield->rotate_xaxis = RADIAN(value - 90.0f);
 	cout << "Rotate around x-axis = " << value - 90.0f << endl;
+	lightfield->render();
+}
+
+void lightFieldRyCallback(int value, LightField* lightfield)
+{
+	lightfield->rotate_yaxis = RADIAN(value - 90.0f);
+	cout << "Rotate around y-axis = " << value - 90.0f << endl;
+	lightfield->render();
+}
+
+void lightFieldTzCallback(int value, LightField* lightfield)
+{
+	lightfield->translate_zaxis = (value - 50) / 10.0f;
+	cout << "Translate along z-axis = " << (value - 50) / 10.0f << endl;
 	lightfield->render();
 }
 

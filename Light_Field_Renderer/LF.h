@@ -49,9 +49,11 @@ private:
 	static cv::Mat LightField::rotateY(float theta);
 	static cv::Mat LightField::rotateZ(float theta);
 	static cv::Mat LightField::translate(float deltaX, float deltaY, float deltaZ);
+	static cv::Point2f LightField::performPerspective(cv::Point2f point, cv::Mat matrix);
 
 	void LightField::updateCamera();
-	cv::Mat original_border;
+	cv::Mat original_border; //CV_32F
+	cv::Mat current_border; //CV_32S
 	float ratio;
 	cv::Mat m_transform;
 };
@@ -63,6 +65,7 @@ LightField::LightField()
 	this->rotate_yaxis = 0.0f;
 	this->rotate_zaxis = 0.0f;
 	this->translate_zaxis = 0.0f;
+	this->current_border = cv::Mat(2, 4, CV_32S);
 }
 
 LightField::~LightField()
@@ -120,11 +123,11 @@ void LightField::load(char* filename)
 
 	this->original_border.at<float>(0, 1) = ratio;
 
-	this->original_border.at<float>(0, 2) = -ratio;
-	this->original_border.at<float>(1, 2) = -1.0f;
-
-	this->original_border.at<float>(0, 3) = ratio;
+	this->original_border.at<float>(0, 3) = -ratio;
 	this->original_border.at<float>(1, 3) = -1.0f;
+
+	this->original_border.at<float>(0, 2) = ratio;
+	this->original_border.at<float>(1, 2) = -1.0f;
 
 	this->updateCamera();
 }
@@ -281,25 +284,29 @@ void LightField::renderByPixel2(int u, int v, cv::Mat target)
 	float targetBGR[3];
 	targetBGR[0] = targetBGR[1] = targetBGR[2] = 0.0f;
 
-	std::vector<cv::Point2f> src;
-	std::vector<cv::Point2f> dst;
+	//std::vector<cv::Point2f> src;
+	//std::vector<cv::Point2f> dst;
 
 	for (int s = s_lefttop; s < s_lefttop + ksize; ++s)
 	{
 		for (int t = t_lefttop; t < t_lefttop + ksize; ++t)
 		{
-			src.push_back(cv::Point2f(s, t));
-			cv::perspectiveTransform(src, dst, this->m_transform);
-			s = dst[0].x;
-			t = dst[0].y;
-			dst.clear();
-
+			//src.push_back(cv::Point2f(s, t));
+			//cv::perspectiveTransform(src, dst, this->m_transform);
+			//s = dst[0].x;
+			//t = dst[0].y;
+			//dst.clear();
 			int u_ = u - this->disparity * ((float)s - this->camera_s);
 			int v_ = v - this->disparity * ((float)t - this->camera_t);
-			src.push_back(cv::Point2f(u_, v_));
-			cv::perspectiveTransform(src, dst, this->m_transform);
-			u_ = dst[1].x;
-			v_ = dst[1].y;
+
+			//src.push_back(cv::Point2f(u_, v_));
+			//cv::perspectiveTransform(src, dst, this->m_transform);
+			//u_ = dst[1].x;
+			//v_ = dst[1].y;
+
+			cv::Point2f new_uv = LightField::performPerspective(cv::Point2f(u_, v_), this->m_transform);
+			u_ = (int)new_uv.x;
+			v_ = (int)new_uv.y;
 
 
 			float scale;
@@ -327,10 +334,10 @@ void LightField::renderByPixel2(int u, int v, cv::Mat target)
 			targetBGR[1] += scale * G;
 			targetBGR[2] += scale * R;
 
-			s = src[0].x;
-			t = src[0].y;
-			src.clear();
-			dst.clear();
+			//s = src[0].x;
+			//t = src[0].y;
+			//src.clear();
+			//dst.clear();
 		}
 	}
 
@@ -344,6 +351,7 @@ void LightField::renderByPixel2(int u, int v, cv::Mat target)
 void LightField::render()
 {
 	this->createGaussianKernel2();
+	this->updateCamera();
 	//this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
 	cv::Mat buffer = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0));
@@ -356,6 +364,11 @@ void LightField::render()
 			this->renderByPixel2(i, j, buffer);
 		}
 	}
+
+	// TODO REMOVE..
+
+	cv::polylines(buffer, this->current_border.t(), true, cv::Scalar(0, 0, 255));
+	// TODO END
 	cv::imshow("Result", buffer);
 	this->result = buffer;
 	//cv::waitKey(0);
@@ -390,7 +403,6 @@ cv::Mat LightField::perspective(float fovy, float aspect, float near, float far)
 cv::Mat LightField::rotateX(float theta) //A*x
 {
 	cv::Mat ret = cv::Mat::eye(4, 4, CV_32F);
-	ret.at<float>(0, 0) = 1.0f;
 	ret.at<float>(1, 1) = cos(theta);
 	ret.at<float>(2, 1) = -sin(theta);
 	ret.at<float>(1, 2) = sin(theta);
@@ -401,7 +413,6 @@ cv::Mat LightField::rotateX(float theta) //A*x
 cv::Mat LightField::rotateY(float theta)
 {
 	cv::Mat ret = cv::Mat::eye(4, 4, CV_32F);
-	ret.at<float>(1, 1) = 1.0f;
 	ret.at<float>(0, 0) = cos(theta);
 	ret.at<float>(0, 2) = -sin(theta);
 	ret.at<float>(2, 0) = sin(theta);
@@ -412,7 +423,6 @@ cv::Mat LightField::rotateY(float theta)
 cv::Mat LightField::rotateZ(float theta)
 {
 	cv::Mat ret = cv::Mat::eye(4, 4, CV_32F);
-	ret.at<float>(2, 2) = 1.0f;
 	ret.at<float>(0, 0) = cos(theta);
 	ret.at<float>(1, 0) = -sin(theta);
 	ret.at<float>(0, 1) = sin(theta);
@@ -433,9 +443,9 @@ void LightField::updateCamera()
 {
 	cv::Mat m_projective = LightField::perspective(fovy, 1.0f, 1.0f, 100.0f); //this->ratio
 	cv::Mat m_view = LightField::translate(0.0f, 0.0f, this->translate_zaxis) * LightField::rotateX(this->rotate_xaxis) * LightField::rotateY(this->rotate_yaxis) * LightField::rotateZ(this->rotate_zaxis);
-
+	//TODO
 	cv::Mat border; // 4 * cols
-	border = m_view * m_projective * this->original_border;
+	border = m_projective * m_view * this->original_border;
 	
 	cv::Point2f srcQuad[4];
 	cv::Point2f dstQuad[4];
@@ -443,13 +453,30 @@ void LightField::updateCamera()
 	for (int i = 0; i < 4; i++)
 	{
 		srcQuad[i] = cv::Point2f(this->original_border.at<float>(0, i), this->original_border.at<float>(1, i));
-		dstQuad[i] = cv::Point2f(border.at<float>(0, i), border.at<float>(1, i));
+		float x = border.at<float>(0, i) / -border.at<float>(3, i);
+		float y = border.at<float>(1, i) / -border.at<float>(3, i);
+		dstQuad[i] = cv::Point2f(x, y);
+		this->current_border.at<int>(0, i) = x * 100 + this->data[0][0].cols / 2;
+		this->current_border.at<int>(1, i) = y * 100 + this->data[0][0].rows / 2;
+
 	}
-	this->m_transform = cv::getPerspectiveTransform(srcQuad, dstQuad);
+	this->m_transform = cv::getPerspectiveTransform(dstQuad, srcQuad); // CV_64F
 
-
-	cout << m_projective << endl;
-	cout << this->original_border << endl;
-	cout << border << endl;
+	//cout << m_projective << endl;
+	//cout << this->original_border << endl;
+	//cout << border << endl;
 	cout << this->m_transform << endl;
+}
+
+cv::Point2f LightField::performPerspective(cv::Point2f point, cv::Mat matrix)
+{
+	assert(matrix.cols == 3 && matrix.rows == 3);
+	cv::Mat point_ = cv::Mat::ones(3, 1, CV_64F); // matrix is CV_64F
+	point_.at<double>(0, 0) = point.x;
+	point_.at<double>(1, 0) = point.y;
+
+	cv::Mat result = matrix * point_;
+	double w = result.at<double>(2, 0);
+	cv::Point2f ret = cv::Point2f(result.at<double>(0, 0) / w, result.at<double>(1, 0) / w);
+	return ret;
 }
