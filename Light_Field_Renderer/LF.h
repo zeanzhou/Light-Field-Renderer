@@ -4,6 +4,7 @@
 #include <opencv2/core/core.hpp>  
 #include <opencv2/highgui/highgui.hpp>  
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/calib3d.hpp>
 
 #define SQUARE(square_param) ((square_param)*(square_param))
 #define RADIAN(radian_param) ((radian_param) * CV_PI / 180.0f)
@@ -40,7 +41,8 @@ private:
 	void renderByPixel2(int u, int v, cv::Mat target);
 
 	cv::Mat kernel;
-	cv::Mat** data;
+	cv::Mat** raw_data;
+	cv::Mat** warpped_data;
 	cv::Mat result;
 
 	static cv::Mat LightField::frustum(float left, float right, float bottom, float top, float near, float far);
@@ -72,9 +74,11 @@ LightField::~LightField()
 {
 	for (int i = 0; i < this->width; ++i)
 	{
-		delete [] this->data[i];
+		delete [] this->raw_data[i];
+		delete[] this->warpped_data[i];
 	}
-	delete [] this->data;
+	delete [] this->raw_data;
+	delete [] this->warpped_data;
 }
 
 void LightField::load(char* filename)
@@ -86,10 +90,14 @@ void LightField::load(char* filename)
 
 	string buffer;
 	infile.get(); // newline
-	this->data = new cv::Mat*[this->width];
+	this->raw_data = new cv::Mat*[this->width];
+	this->warpped_data = new cv::Mat*[this->width];
 
 	for (int i = 0; i < this->width; ++i)
-		this->data[i] = new cv::Mat[this->height];
+	{
+		this->raw_data[i] = new cv::Mat[this->height];
+		this->warpped_data[i] = new cv::Mat[this->height];
+	}
 
 	for (int i = 0; i < this->width; ++i)
 	{
@@ -106,40 +114,43 @@ void LightField::load(char* filename)
 			assert(x >= 0 && x < this->width);
 			assert(y >= 0 && y < this->height);
 
-			this->data[x][y] = cv::imread(path);
+			this->raw_data[x][y] = cv::imread(path);
+			this->warpped_data[x][y] = this->raw_data[x][y].clone();
 		}
 	}
 	
 	infile.close();
 
-	this->result = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0.0f, 0.0f, 0.0f));
+	this->result = cv::Mat(this->raw_data[0][0].rows, this->raw_data[0][0].cols, CV_8UC3, cv::Scalar(0.0f, 0.0f, 0.0f));
 
 	// Fancy Camera Initialization
-	this->ratio = (float)this->data[0][0].cols / (float)this->data[0][0].rows; // width / height
+	this->ratio = (float)this->raw_data[0][0].cols / (float)this->raw_data[0][0].rows; // width / height
 	this->m_transform = cv::Mat::eye(3, 3, CV_32F);
 	this->original_border = cv::Mat::ones(4, 4, CV_32F);
 
-	this->original_border.at<float>(0, 0) = -ratio;
+	this->original_border.at<float>(0, 0) = -this->raw_data[0][0].cols / 2; // -ratio;
+	this->original_border.at<float>(1, 0) = this->raw_data[0][0].rows / 2; // 1.0f;
 
-	this->original_border.at<float>(0, 1) = ratio;
+	this->original_border.at<float>(0, 1) = this->raw_data[0][0].cols / 2; // ratio;
+	this->original_border.at<float>(1, 1) = this->raw_data[0][0].rows / 2; // 1.0f;
 
-	this->original_border.at<float>(0, 3) = -ratio;
-	this->original_border.at<float>(1, 3) = -1.0f;
+	this->original_border.at<float>(0, 3) = -this->raw_data[0][0].cols / 2; // ratio;
+	this->original_border.at<float>(1, 3) = this->raw_data[0][0].rows / 2; // -1.0f;
 
-	this->original_border.at<float>(0, 2) = ratio;
-	this->original_border.at<float>(1, 2) = -1.0f;
+	this->original_border.at<float>(0, 2) = this->raw_data[0][0].cols / 2;// ratio;
+	this->original_border.at<float>(1, 2) = -this->raw_data[0][0].rows / 2; // -1.0f;
 
 	this->updateCamera();
 }
 
 void LightField::test()
 {
-	assert(this->data);
+	assert(this->raw_data);
 	for (int j = 0; j < this->height; ++j)
 	{
 		for (int i = 0; i < this->width; ++i)
 		{
-			cv::imshow("Test", this->data[i][j]);
+			cv::imshow("Test", this->raw_data[i][j]);
 			cv::waitKey(10);
 			cout << "Show image i = " << i << "\t j = " << j << endl;
 		}
@@ -150,8 +161,8 @@ void LightField::test()
 
 void LightField::test2(int i, int j)
 {
-	assert(this->data);
-	cv::imshow("Test 2", this->data[i][j]);
+	assert(this->raw_data);
+	cv::imshow("Test 2", this->raw_data[i][j]);
 }
 
 void LightField::createGaussianKernel()
@@ -168,8 +179,8 @@ void LightField::createGaussianKernel()
 	cv::Mat coefficient = cv::Mat(ksize, 1, CV_32F);
 	for (int i = 0; i < ksize; ++i)
 	{
-		float* pdata = coefficient.ptr<float>(i);
-		pdata[0] = GaussianFunc(i, ksize, sigma);
+		float* praw_data = coefficient.ptr<float>(i);
+		praw_data[0] = GaussianFunc(i, ksize, sigma);
 	}
 	coefficient /= cv::sum(coefficient)[0];
 
@@ -247,7 +258,7 @@ void LightField::renderByPixel(int u, int v, cv::Mat target)
 					B = G = R = 0.0f;
 				else
 				{
-					uchar* psrc = this->data[s][t].ptr<uchar>(v_);
+					uchar* psrc = this->raw_data[s][t].ptr<uchar>(v_);
 					B = psrc[u_ * 3];
 					G = psrc[u_ * 3 + 1];
 					R = psrc[u_ * 3 + 2];
@@ -304,9 +315,9 @@ void LightField::renderByPixel2(int u, int v, cv::Mat target)
 			//u_ = dst[1].x;
 			//v_ = dst[1].y;
 
-			cv::Point2f new_uv = LightField::performPerspective(cv::Point2f(u_, v_), this->m_transform);
-			u_ = (int)new_uv.x;
-			v_ = (int)new_uv.y;
+			//cv::Point2f new_uv = LightField::performPerspective(cv::Point2f(u_, v_), this->m_transform);
+			//u_ = (int)new_uv.x;
+			//v_ = (int)new_uv.y;
 
 
 			float scale;
@@ -323,7 +334,7 @@ void LightField::renderByPixel2(int u, int v, cv::Mat target)
 					B = G = R = 0.0f;
 				else
 				{
-					uchar* psrc = this->data[s][t].ptr<uchar>(v_);
+					uchar* psrc = this->warpped_data[s][t].ptr<uchar>(v_);
 					B = psrc[u_ * 3];
 					G = psrc[u_ * 3 + 1];
 					R = psrc[u_ * 3 + 2];
@@ -354,12 +365,12 @@ void LightField::render()
 	this->updateCamera();
 	//this->result.setTo(cv::Scalar(0, 0, 0));
 	cv::waitKey(1);
-	cv::Mat buffer = cv::Mat(this->data[0][0].rows, this->data[0][0].cols, CV_8UC3, cv::Scalar(0));
+	cv::Mat buffer = cv::Mat(this->raw_data[0][0].rows, this->raw_data[0][0].cols, CV_8UC3, cv::Scalar(0));
 
 #pragma omp parallel for schedule(guided)
-	for (int i = 0; i < this->data[0][0].cols; ++i)
+	for (int i = 0; i < this->raw_data[0][0].cols; ++i)
 	{
-		for (int j = 0; j < this->data[0][0].rows; ++j)
+		for (int j = 0; j < this->raw_data[0][0].rows; ++j)
 		{
 			this->renderByPixel2(i, j, buffer);
 		}
@@ -456,12 +467,29 @@ void LightField::updateCamera()
 		float x = border.at<float>(0, i) / -border.at<float>(3, i);
 		float y = border.at<float>(1, i) / -border.at<float>(3, i);
 		dstQuad[i] = cv::Point2f(x, y);
-		this->current_border.at<int>(0, i) = x * 100 + this->data[0][0].cols / 2;
-		this->current_border.at<int>(1, i) = y * 100 + this->data[0][0].rows / 2;
+		this->current_border.at<int>(0, i) = x + this->raw_data[0][0].cols / 2;
+		this->current_border.at<int>(1, i) = y + this->raw_data[0][0].rows / 2;
 
 	}
-	this->m_transform = cv::getPerspectiveTransform(dstQuad, srcQuad); // CV_64F
 
+	vector<cv::Point2f> pts_src;
+	vector<cv::Point2f> pts_dst;
+	for (int i = 0; i < 4; ++i)
+	{
+		pts_src.push_back(cv::Point2f((float)srcQuad[i].x, (float)srcQuad[i].y));
+		pts_dst.push_back(cv::Point2f((float)dstQuad[i].x, (float)dstQuad[i].y));
+	}
+
+	this->m_transform = cv::getPerspectiveTransform(srcQuad, dstQuad); // CV_64F
+	this->m_transform = cv::findHomography(pts_src, pts_dst);
+
+	for (int i = 0; i < this->width; ++i)
+	{
+		for (int j = 0; j < this->height; ++j)
+		{
+			cv::warpPerspective(this->raw_data[i][j], this->warpped_data[i][j], this->m_transform, cv::Size(this->raw_data[0][0].cols, this->raw_data[0][0].rows), cv::InterpolationFlags::INTER_NEAREST | cv::InterpolationFlags::WARP_INVERSE_MAP);
+		}
+	}
 	//cout << m_projective << endl;
 	//cout << this->original_border << endl;
 	//cout << border << endl;
