@@ -134,8 +134,8 @@ void LightField::load(char* filename)
 	this->original_border.at<float>(0, 1) = this->raw_data[0][0].cols / 2; // ratio;
 	this->original_border.at<float>(1, 1) = this->raw_data[0][0].rows / 2; // 1.0f;
 
-	this->original_border.at<float>(0, 3) = -this->raw_data[0][0].cols / 2; // ratio;
-	this->original_border.at<float>(1, 3) = this->raw_data[0][0].rows / 2; // -1.0f;
+	this->original_border.at<float>(0, 3) = -this->raw_data[0][0].cols / 2; // -ratio;
+	this->original_border.at<float>(1, 3) = -this->raw_data[0][0].rows / 2; // -1.0f;
 
 	this->original_border.at<float>(0, 2) = this->raw_data[0][0].cols / 2;// ratio;
 	this->original_border.at<float>(1, 2) = -this->raw_data[0][0].rows / 2; // -1.0f;
@@ -452,8 +452,8 @@ cv::Mat LightField::translate(float deltaX, float deltaY, float deltaZ)
 
 void LightField::updateCamera()
 {
-	cv::Mat m_projective = LightField::perspective(fovy, 1.0f, 1.0f, 100.0f); //this->ratio
-	cv::Mat m_view = LightField::translate(0.0f, 0.0f, this->translate_zaxis) * LightField::rotateX(this->rotate_xaxis) * LightField::rotateY(this->rotate_yaxis) * LightField::rotateZ(this->rotate_zaxis);
+	cv::Mat m_projective = LightField::perspective(fovy, 1.0f, 1.0f, 1000000.0f); //this->ratio
+	cv::Mat m_view = LightField::translate(0.0f, 0.0f, this->translate_zaxis) * LightField::rotateX(this->rotate_xaxis) * LightField::rotateY(this->rotate_yaxis) * LightField::rotateZ(this->rotate_zaxis)*LightField::translate(0.0f, 0.0f, -5.0f);
 	//TODO
 	cv::Mat border; // 4 * cols
 	border = m_projective * m_view * this->original_border;
@@ -491,8 +491,8 @@ void LightField::updateCamera()
 		}
 	}
 	//cout << m_projective << endl;
-	//cout << this->original_border << endl;
-	//cout << border << endl;
+	cout << this->original_border << endl;
+	cout << border << endl;
 	cout << this->m_transform << endl;
 }
 

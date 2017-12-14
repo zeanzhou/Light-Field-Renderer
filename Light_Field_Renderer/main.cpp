@@ -63,7 +63,6 @@ int main() {
 	//cv::createTrackbar("t-value", "Test 2", &global_t, lf.height - 1, (cv::TrackbarCallback)lightFieldSTCallback, &lf);
 	//lightFieldSTCallback(0, &lf);
 	//cv::waitKey();
-
 	system("pause");
 	return 0;
 }
